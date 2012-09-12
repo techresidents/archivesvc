@@ -1,0 +1,16 @@
+Tech Residents Archive Service
+
+Development environment:
+1) Make sure the following ports are installed:
+    $ sudo port install thrift
+    $ sudo port install libevent
+    $ sudo port install libzookeeper
+    $ sudo port install zmq
+
+2) Create virtualenv and install requirements
+    $ mkvirtualenv archivesvc
+    $ python bootstrap.py
+
+    OR (alternative to bootstrap.py)
+
+    $ CFLAGS=-I/opt/local/include pip install -r requirements/requirements.txt
