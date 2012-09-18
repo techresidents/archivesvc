@@ -6,6 +6,9 @@ import time
 
 SERVICE_NAME = "archivesvc"
 
+#Working directory
+WORKING_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
+
 #Add PROJECT_ROOT to python path, for version import.
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
 sys.path.insert(0, PROJECT_ROOT)
@@ -19,23 +22,23 @@ from trpycore.zookeeper.client import ZookeeperClient
 from trsvcscore.proxy.zoo import ZookeeperServiceProxy
 from trsvcscore.service.default import DefaultService
 from trsvcscore.service.server.default import ThriftServer
-from trschedulesvc.gen import TScheduleService
+from trarchivesvc.gen import TArchiveService
 
-from handler import ScheduleServiceHandler
+from handler import ArchiveServiceHandler
 
-class ScheduleService(DefaultService):
+class ArchiveService(DefaultService):
     def __init__(self, hostname, port):
-        self.handler = ScheduleServiceHandler(self)
+        self.handler = ArchiveServiceHandler(self)
 
         self.server = ThriftServer(
                 name="%s-thrift" % SERVICE_NAME,
                 interface="0.0.0.0",
                 port=port,
                 handler=self.handler,
-                processor=TScheduleService.Processor(self.handler),
+                processor=TArchiveService.Processor(self.handler),
                 address=hostname)
 
-        super(ScheduleService, self).__init__(
+        super(ArchiveService, self).__init__(
                 name=SERVICE_NAME,
                 version="unittest-version",
                 build="unittest-build",
@@ -50,12 +53,12 @@ class IntegrationTestCase(unittest.TestCase):
     def setUpClass(cls):
         logging.basicConfig(level=logging.DEBUG)
 
-        cls.service = ScheduleService("localhost", 9092)
+        cls.service = ArchiveService("localhost", 9092)
         cls.service.start()
         time.sleep(1)
 
         cls.service_name = SERVICE_NAME
-        cls.service_class = TScheduleService
+        cls.service_class = TArchiveService
 
         cls.zookeeper_client = ZookeeperClient(["localdev:2181"])
         cls.zookeeper_client.start()
