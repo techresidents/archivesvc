@@ -22,9 +22,13 @@ from trarchivesvc.gen import TArchiveService
 from handler import ArchiveServiceHandler
 
 class ArchiveService(DefaultService):
+    """Archive service."""
+
     def __init__(self):
+        """Archive service constructor."""
 
         handler = ArchiveServiceHandler(self)
+
         server = ThriftServer(
                 name=settings.SERVICE,
                 interface=settings.THRIFT_SERVER_INTERFACE,
