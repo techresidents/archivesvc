@@ -309,7 +309,7 @@ class Archiver(object):
                 % (__name__, self.__class__.__name__))
     
     def start(self):
-        """Start scheduler."""
+        """Start archiver."""
         if not self.running:
             self.running = True
             self.threadpool.start()
@@ -336,14 +336,14 @@ class Archiver(object):
         self.running = False
 
     def stop(self):
-        """Stop scheduler."""
+        """Stop archiver."""
         if self.running:
             self.running = False
             self.db_job_queue.stop()
             self.threadpool.stop()
     
     def join(self, timeout):
-        """Join scheduler."""
+        """Join archiverer."""
         threads = [self.threadpool, self.db_job_queue]
         if self.thread is not None:
             threads.append(self.thread)
