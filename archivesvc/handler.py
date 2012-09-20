@@ -45,14 +45,14 @@ class ArchiveServiceHandler(TArchiveService.Iface, ServiceHandler):
         #on public cdn.
         self.cloudfiles_public_storage_pool = CloudfilesStoragePool(
                 cloudfiles_connection_factory=self.cloudfiles_connection_factory,
-                container_name=settings.CLOUDFILES_PRIVATE_CONTAINER_NAME,
+                container_name=settings.CLOUDFILES_PUBLIC_CONTAINER_NAME,
                 size=settings.CLOUDFILES_STORAGE_POOL_SIZE)
         
         #private cloudfiles storage pool for storing archives
         #which should not be accessible on cdb.
         self.cloudfiles_private_storage_pool = CloudfilesStoragePool(
                 cloudfiles_connection_factory=self.cloudfiles_connection_factory,
-                container_name=settings.CLOUDFILES_PUBLIC_CONTAINER_NAME,
+                container_name=settings.CLOUDFILES_PRIVATE_CONTAINER_NAME,
                 size=settings.CLOUDFILES_STORAGE_POOL_SIZE)
         
         def filesystem_storage_factory():

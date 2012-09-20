@@ -193,14 +193,22 @@ class FFMpegSoxStitcher(ArchiveStitcher):
         if not os.path.exists(output_path):
             self.log.info("Stitching audio from %s" % archive_streams)
 
-            sox_arguments = [self.sox_path, "-m", "--norm"]
+            if len(archive_streams) > 1:
+                sox_arguments = [self.sox_path, "-m", "--norm"]
 
-            for stream in archive_streams:
-                sox_arguments.append("|sox %s -p pad %s" % (\
-                        storage_backend.path(stream.filename),
-                        (stream.offset or 0)/1000.0))
-            sox_arguments.append(output_filename)
-            
+                for stream in archive_streams:
+                    sox_arguments.append("|sox %s -p pad %s" % (\
+                            storage_backend.path(stream.filename),
+                            (stream.offset or 0)/1000.0))
+                sox_arguments.append(output_filename)
+            else:
+                input_filename = archive_streams[0].filename
+                sox_arguments = [
+                        self.sox_path,
+                        "--norm",
+                        input_filename,
+                        output_filename]
+                
             self.log.info(sox_arguments)
 
             output = subprocess.check_output(
