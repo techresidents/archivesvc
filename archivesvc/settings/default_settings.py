@@ -52,12 +52,12 @@ CLOUDFILES_TIMEOUT = 5
 CLOUDFILES_STORAGE_POOL_SIZE = 1
 
 #Filesystem storage settings
-FILESYSTEM_STORAGE_LOCATION = "."
+FILESYSTEM_STORAGE_LOCATION = "./storage"
 
 #Stitch settings
 STITCH_FFMPEG_PATH = "/opt/local/bin/ffmpeg"
 STITCH_SOX_PATH = "/opt/local/bin/sox"
-STITCH_WORKING_DIRECTORY = "."
+STITCH_WORKING_DIRECTORY = "./storage"
 
 #Logging settings
 LOGGING = {
