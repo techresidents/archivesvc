@@ -1,6 +1,7 @@
 import abc
 import logging
 import os
+import re
 import subprocess
 
 from trpycore.pool.simple import SimplePool
@@ -137,6 +138,57 @@ class FFMpegSoxStitcher(ArchiveStitcher):
                 users=archive_stream.users,
                 offset=archive_stream.offset)
     
+    def _get_audio_stream_stats(self, storage_backend, archive_stream):
+        """Get dict of audio stream stats.
+        
+        Returns dict of audio stream stats based on the output
+        from 'sox <file> -n stat'. Stats include the following:
+
+            Samples read
+            Length (seconds)
+            Scaled by
+            Maximum amplitude
+            Minimum amplitude
+            Midline amplitude
+            Mean norm
+            Mean amplitude
+            RMS amplitude
+            Maximum delta
+            Minimum delta
+            Mean delta
+            RMS delta
+            Rough frequency
+            Volume adjustment
+
+        Args:
+            storage_backend: Storage object, accessible on local filesystem,
+                where archive_stream can be found.
+            archive_stream: ArchiveStream object for which to determine length.
+        Returns:
+            dict of audio stream stats
+        Raises:
+            subprocess.CalledProcessError, StorageException
+        """
+        result = {}
+
+        sox_arguments = [
+                self.sox_path,
+                storage_backend.path(archive_stream.filename),
+                "-n",
+                "stat"]
+        
+        output = subprocess.check_output(sox_arguments, stderr=subprocess.STDOUT)
+        for line in output.split("\n"):
+            line = line.strip()
+            key_value = line.split(":", 1)
+            if len(key_value) == 2:
+                #remove duplicate spaces from stat key
+                key = re.sub(r"\s+", " ", key_value[0].strip())
+                value = float(key_value[1].strip())
+                result[key] = value
+
+        return result
+
     def _get_audio_stream_length(self, storage_backend, archive_stream):
         """Get audio stream length in milliseconds.
         
@@ -149,22 +201,149 @@ class FFMpegSoxStitcher(ArchiveStitcher):
         Raises:
             subprocess.CalledProcessError, StorageException
         """
-        result = None
+        stats = self._get_audio_stream_stats(storage_backend, archive_stream)
+        return stats["Length (seconds)"] * 1000.0
 
-        sox_arguments = [
-                self.sox_path,
-                storage_backend.path(archive_stream.filename),
-                "-n",
-                "stat"]
+    def _adjust_audio_stream_volume(self,
+            storage_backend,
+            archive_stream,
+            volume_factor,
+            output_filename):
+        """Adjust audio stream volume by volume factor.
+
+        This method will adjust archive_stream's volume by volume_factor
+        through sox's vol <volume_factor>. The updated audio stream will
+        be stored on storage_backend as output_filename.
+
+        Args:
+            storage_backend: Storage object, accessible on local filesystem,
+                where archive_stream can be found.
+            archive_stream: ArchiveStream object for which to determine length.
+            volume_factor: factor adjust volume by
+            output_filename: output filename to use when  storing audio stream
+                on the storage_backend.
+        Returns:
+            ArchiveStream object with adjusted volume
+        Raises:
+            subprocess.CalledProcessError, StorageException
+        """
+        output_path = storage_backend.path(output_filename)
+        self._ensure_directory(output_path)
+
+        if not os.path.exists(output_path):
+            self.log.info("Adjusting audio volume for %s" % archive_stream)
+
+            sox_arguments = [
+                    self.sox_path,
+                    storage_backend.path(archive_stream.filename),
+                    output_path,
+                    "vol",
+                    "%s" % volume_factor]
+            
+            self.log.info(sox_arguments)
+            output = subprocess.check_output(sox_arguments, stderr=subprocess.STDOUT)
+            self.log.info(output)
+
+        return ArchiveStream(
+                filename=output_filename,
+                type=archive_stream.type,
+                length=archive_stream.length,
+                users=archive_stream.users,
+                offset=archive_stream.offset)
+    
+    def _normalize_audio_streams(self, storage_backend, archive_streams):
+        """Normalize audio streams.
+
+        This method with attempt to normalize the specified audio streams
+        with the following approach:
+            1) Find the audio stream with the lowest RMS amplitude
+               (RMS amplitude is the best gauge of volume), and
+               raise it's volume to 70% of the maximum amount
+               the stream can be increased to before clipping
+               occurs. This will increase the volume of the
+               stream and still leave a bit of headroom.
+            2) Determine the new RMS amplitude of the stream
+               we adjusted and use this as the target volume
+               moving forward
+            3) Adjust all of the other streams to the target
+               volume.
         
-        output = subprocess.check_output(sox_arguments, stderr=subprocess.STDOUT)
-        for line in output.split("\n"):
-            line = line.strip()
-            if line.startswith("Length"):
-                length = float(line.split(":")[1])
-                result = int(length * 1000)
+        The adjusted audio stream will be stored on the specified
+        storage_backend with filenames calculated from the
+        input stream. The output filename will be identical
+        to the input stream with addition of "-norm" immediately
+        before the filename's extension.
+
+        Args:
+            storage_backend: Storage object, accessible on local filesystem,
+                where archive_stream can be found.
+            archive_stream: list of ArchiveStream objects to normalize
+        Returns:
+            list of normalized ArchiveStream objects
+        Raises:
+            subprocess.CalledProcessError, StorageException
+        """
+        results = []
+
+        def build_output_filename(stream):
+            """Get output_filename for given stream."""
+            path, ext = os.path.splitext(stream.filename)
+            return "%s-norm%s" % (path, ext)
         
-        return result
+        #determine stream with the lowest volume (RMS Amplitude)
+        stream_stats = []
+        lowest_volume_index = None
+        for index, stream in enumerate(archive_streams):
+            stats = self._get_audio_stream_stats(storage_backend, stream)
+            if lowest_volume_index is None:
+                lowest_volume_index = index
+            else:
+                lowest_stats = stream_stats[lowest_volume_index]
+                if stats["RMS amplitude"] < lowest_stats["RMS amplitude"]:
+                    lowest_volume_index = index
+            stream_stats.append(stats)
+
+        lowest_volume_stream = archive_streams[lowest_volume_index]
+        lowest_volume_stats = stream_stats[lowest_volume_index]
+
+        #adjust the lowest volume stream by 70% of the maximum
+        #possible amount without clipping. The max volume factor
+        #the stream can be increased by without clippling is
+        #available in stats as "Volume adjustment." We only
+        #use 70% of this number to leave a little headroom.
+        adjusted_stream = self._adjust_audio_stream_volume(
+                storage_backend=storage_backend,
+                archive_stream=lowest_volume_stream, 
+                volume_factor=lowest_volume_stats["Volume adjustment"] * 0.7,
+                output_filename=build_output_filename(lowest_volume_stream))
+        results.append(adjusted_stream)
+        
+        #get the new volume of the adjusted lowest stream, and
+        #use this as the target volume to which the rest of the
+        #streams should be adjusted.
+        adjusted_stream_stats = self._get_audio_stream_stats(
+                storage_backend=storage_backend,
+                archive_stream=adjusted_stream)
+        target_volume = adjusted_stream_stats["RMS amplitude"]
+        
+        #adjust the remaining streams volume to the target volume.
+        for index, stream in enumerate(archive_streams):
+
+            #skip the stream with the lowest volume, since
+            #we've already adjusted it.
+            if index == lowest_volume_index:
+                continue
+            stats = stream_stats[index]
+            volume_factor = target_volume / stats["RMS amplitude"]
+            adjusted_stream = self._adjust_audio_stream_volume(
+                    storage_backend=storage_backend,
+                    archive_stream=stream,
+                    volume_factor=volume_factor,
+                    output_filename=build_output_filename(stream))
+            results.append(adjusted_stream)
+        
+        return results
+
 
     def _stitch_audio_streams(self, storage_backend, archive_streams, output_filename):
         """Stitch multiple audio streams into a single audio stream.
@@ -352,10 +531,15 @@ class FFMpegSoxStitcher(ArchiveStitcher):
                                     % (output_filename, index+1))
                     audio_streams.append(audio_stream)
                 
+                #normalize audio streams volume
+                normalized_streams = self._normalize_audio_streams(
+                        storage_backend=storage_backend,
+                        archive_streams=audio_streams)
+
                 #stitch audio streams together
                 stitched_stream = self._stitch_audio_streams(
                         storage_backend=storage_backend,
-                        archive_streams=audio_streams,
+                        archive_streams=normalized_streams,
                         output_filename="%s.mp3" % output_filename)
 
                 #convert stitched stream to mp4
