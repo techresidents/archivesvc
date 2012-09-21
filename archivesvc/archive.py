@@ -1,6 +1,7 @@
 import datetime
 import logging
 import threading
+import time
 
 from sqlalchemy.sql import func
 
@@ -28,7 +29,8 @@ class ArchiverThreadPool(ThreadPool):
             fetcher_pool,
             stitcher_pool,
             persister_pool,
-            job_retry_seconds):
+            job_retry_seconds,
+            timestamp_filenames=False):
         """Archive threadpool constructor.
 
         Arguments:
@@ -41,12 +43,16 @@ class ArchiverThreadPool(ThreadPool):
             num_threads: number of worker threads
             job_retry_seconds: number of seconds to wait before retrying
                 a failed job.
+            timestamp_filenames: optional boolean indicating that epoch
+                timestamps should be used in filenames to guarantee
+                uniqueness. This is useful for non-prod environments.
         """
         self.db_session_factory = db_session_factory
         self.fetcher_pool = fetcher_pool
         self.stitcher_pool = stitcher_pool
         self.persister_pool = persister_pool
         self.job_retry_seconds = job_retry_seconds
+        self.timestamp_filenames = timestamp_filenames
         super(ArchiverThreadPool, self).__init__(num_threads)
 
         self.log = logging.getLogger("%s.%s" \
@@ -214,6 +220,8 @@ class ArchiverThreadPool(ThreadPool):
                 chat_session_id = job.chat_session_id
                 encoded_chat_session_id = basic_encode(chat_session_id)
                 output_filename = "archive/%s" % encoded_chat_session_id
+                if self.timestamp_filenames:
+                    output_filename += "-%s" % time.time()
 
                 self.log.info("Creating archive for chat_session_id=%s (%s)" \
                         % (chat_session_id, encoded_chat_session_id))
@@ -266,7 +274,8 @@ class Archiver(object):
             persister_pool,
             num_threads,
             poll_seconds=60,
-            job_retry_seconds=300):
+            job_retry_seconds=300,
+            timestamp_filenames=False):
         """Constructor.
 
         Arguments:
@@ -279,6 +288,9 @@ class Archiver(object):
                 new archive jobs.
             job_retry_seconds: number of seconds to wait before retrying
                 a failed job.
+            timestamp_filenames: optional boolean indicating that epoch
+                timestamps should be used in filenames to guarantee
+                uniqueness. This is useful for non-prod environments.
         """
         self.db_session_factory = db_session_factory
         self.fetcher_pool = fetcher_pool
@@ -287,6 +299,7 @@ class Archiver(object):
         self.num_threads = num_threads
         self.poll_seconds = poll_seconds
         self.job_retry_seconds = job_retry_seconds
+        self.timestamp_filenames = timestamp_filenames
         self.thread = None
 
         self.threadpool = ArchiverThreadPool(
@@ -295,7 +308,8 @@ class Archiver(object):
                 fetcher_pool=fetcher_pool,
                 stitcher_pool=stitcher_pool,
                 persister_pool=persister_pool,
-                job_retry_seconds=job_retry_seconds)
+                job_retry_seconds=job_retry_seconds,
+                timestamp_filenames=timestamp_filenames)
 
         self.db_job_queue = DatabaseJobQueue(
                 owner="archivesvc",
