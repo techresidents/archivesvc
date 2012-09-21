@@ -101,7 +101,8 @@ class ArchiveServiceHandler(TArchiveService.Iface, ServiceHandler):
                 persister_pool=self.persister_pool,
                 num_threads=settings.ARCHIVER_THREADS,
                 poll_seconds=settings.ARCHIVER_POLL_SECONDS,
-                job_retry_seconds=settings.ARCHIVER_JOB_RETRY_SECONDS)
+                job_retry_seconds=settings.ARCHIVER_JOB_RETRY_SECONDS,
+                timestamp_filenames=settings.ARCHIVER_TIMESTAMP_FILENAMES)
     
     def start(self):
         """Start handler."""
