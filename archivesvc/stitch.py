@@ -381,7 +381,7 @@ class FFMpegSoxStitcher(ArchiveStitcher):
                             (stream.offset or 0)/1000.0))
                 sox_arguments.append(output_path)
             else:
-                input_filename = archive_streams[0].filename
+                input_filename = storage_backend.path(archive_streams[0].filename)
                 sox_arguments = [
                         self.sox_path,
                         "--norm",
