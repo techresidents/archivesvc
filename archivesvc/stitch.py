@@ -386,7 +386,10 @@ class FFMpegSoxStitcher(ArchiveStitcher):
                         self.sox_path,
                         "--norm",
                         input_filename,
-                        output_path]
+                        output_path,
+                        "pad",
+                        "%s" % ((stream.offset or 0)/1000.0)
+                        ]
                 
             self.log.info(sox_arguments)
 

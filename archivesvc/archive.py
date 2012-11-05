@@ -230,7 +230,8 @@ class ArchiverThreadPool(ThreadPool):
                 archive_manifest = self._fetch_archives(
                         chat_session_id=chat_session_id,
                         output_filename=output_filename)
-                if archive_manifest is None:
+                if archive_manifest is None \
+                        or not archive_manifest.archive_streams:
                     self.log.info("No archives for chat_session_id=%s" \
                             % chat_session_id)
                     return
