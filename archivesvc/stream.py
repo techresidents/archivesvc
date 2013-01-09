@@ -22,12 +22,16 @@ class ArchiveStream(object):
             type,
             length,
             users=None,
-            offset=0):
+            offset=0,
+            waveform=None,
+            waveform_filename=None):
         self.filename = filename
         self.type = type
         self.length = length
         self.users = users or []
         self.offset = offset
+        self.waveform = waveform
+        self.waveform_filename = waveform_filename
     
     def __repr__(self):
         return "%s(filename=%r, type=%r, length=%r, offset=%r)" % (\
