@@ -12,7 +12,14 @@ def main(argv):
 
     def parse_arguments():
         parser = argparse.ArgumentParser(description="bootstrap.py bootstraps your environment with specified modules.")
-        parser.add_argument("-r", "--requirements", default=os.path.join("requirements", "requirements.txt"))
+        parser.add_argument(
+                "-r",
+                "--requirements",
+                nargs="?",
+                default=[
+                    os.path.join("requirements", "numpy-requirements.txt"),
+                    os.path.join("requirements", "requirements.txt")
+                    ])
         return parser.parse_args(argv[1:])
 
     #configure logger
@@ -37,8 +44,9 @@ def main(argv):
         else:
             os.putenv("CFLAGS", "-I/opt/3ps/include -L/opt/3ps/lib64 -L/opt/3ps/lib")
             os.putenv("LIBRARY_PATH", "$LIBRARY_PATH:/opt/3ps/lib64:/opt/3ps/lib")
-
-        subprocess.call(["pip", "install", "--requirement", args.requirements])
+        
+        for requirements in args.requirements:
+            subprocess.call(["pip", "install", "--requirement", requirements])
 
         return 0
 
