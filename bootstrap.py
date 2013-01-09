@@ -15,7 +15,7 @@ def main(argv):
         parser.add_argument(
                 "-r",
                 "--requirements",
-                nargs="?",
+                nargs="+",
                 default=[
                     os.path.join("requirements", "numpy-requirements.txt"),
                     os.path.join("requirements", "requirements.txt")

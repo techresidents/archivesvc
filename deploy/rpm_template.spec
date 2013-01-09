@@ -35,7 +35,7 @@ virtualenv --no-site-packages $RPM_BUILD_ROOT/env
 
 %install
 source $RPM_BUILD_ROOT/env/bin/activate
-python %{app_buildroot}/bootstrap.py --requirements %{app_buildroot}/requirements/requirements.txt
+python %{app_buildroot}/bootstrap.py --requirements %{app_buildroot}/requirements/numpy-requirements.txt %{app_buildroot}/requirements/requirements.txt
 
 # fix the #! line in installed python files
 find "$RPM_BUILD_ROOT" -type f -print0 |
