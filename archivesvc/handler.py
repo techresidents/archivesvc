@@ -14,6 +14,7 @@ from archive import Archiver
 from fetch import TokboxFetcher
 from persist import DefaultPersister
 from stitch import FFMpegSoxStitcher
+from waveform import FFMpegWaveformGenerator
 
 
 class ArchiveServiceHandler(TArchiveService.Iface, ServiceHandler):
@@ -82,6 +83,15 @@ class ArchiveServiceHandler(TArchiveService.Iface, ServiceHandler):
         self.stitcher_pool = QueuePool(
                 size=settings.ARCHIVER_THREADS,
                 factory=Factory(stitcher_factory))
+
+        def waveform_generator_factory():
+            return FFMpegWaveformGenerator(
+                    ffmpeg_path=settings.STITCH_FFMPEG_PATH,
+                    storage_pool=self.filesystem_storage_pool,
+                    working_directory=settings.STITCH_WORKING_DIRECTORY)
+        self.waveform_generator_pool = QueuePool(
+                size=settings.ARCHIVER_THREADS,
+                factory=Factory(waveform_generator_factory))
     
         def persister_factory():
             return DefaultPersister(
@@ -98,6 +108,7 @@ class ArchiveServiceHandler(TArchiveService.Iface, ServiceHandler):
                 db_session_factory=self.get_database_session,
                 fetcher_pool=self.fetcher_pool,
                 stitcher_pool=self.stitcher_pool,
+                waveform_generator_pool=self.waveform_generator_pool,
                 persister_pool=self.persister_pool,
                 num_threads=settings.ARCHIVER_THREADS,
                 poll_seconds=settings.ARCHIVER_POLL_SECONDS,

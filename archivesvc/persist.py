@@ -97,6 +97,14 @@ class DefaultPersister(ArchivePersister):
                             public_storage.save(stream.filename, file)
                         self.log.info("Done uploading archive stream '%s'" \
                                 % stream)
+
+                        if stream.waveform_filename:
+                            self.log.info("Uploading waveform for archive stream '%s'" \
+                                    % stream)
+                            with local_storage.open(stream.waveform_filename, "r") as file:
+                                public_storage.save(stream.waveform_filename, file)
+                            self.log.info("Done uploading waveform for archive stream '%s'" \
+                                    % stream)
         
     def _upload_private_archive_streams(self, archive_streams):
         """Upload private archive streams.
@@ -210,7 +218,9 @@ class DefaultPersister(ArchivePersister):
                         mime_type_id=mime_type_id,
                         public=is_public,
                         length=stream.length,
-                        offset=stream.offset)
+                        offset=stream.offset,
+                        waveform=stream.waveform,
+                        waveform_path=stream.waveform_filename)
 
                 db_session.add(archive)
                 

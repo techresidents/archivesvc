@@ -28,6 +28,7 @@ class ArchiverThreadPool(ThreadPool):
             db_session_factory,
             fetcher_pool,
             stitcher_pool,
+            waveform_generator_pool,
             persister_pool,
             job_retry_seconds,
             timestamp_filenames=False):
@@ -39,6 +40,7 @@ class ArchiverThreadPool(ThreadPool):
                 db session.
             fetcher_pool: Pool object returning a Fetcher object.
             stitcher_pool: Pool object returning a Stitcher object.
+            waveform_generator_pool: Pool object returning a WaveformGenerator object.
             persister_pool: Pool object returning a Persister object.
             num_threads: number of worker threads
             job_retry_seconds: number of seconds to wait before retrying
@@ -50,6 +52,7 @@ class ArchiverThreadPool(ThreadPool):
         self.db_session_factory = db_session_factory
         self.fetcher_pool = fetcher_pool
         self.stitcher_pool = stitcher_pool
+        self.waveform_generator_pool = waveform_generator_pool
         self.persister_pool = persister_pool
         self.job_retry_seconds = job_retry_seconds
         self.timestamp_filenames = timestamp_filenames
@@ -156,6 +159,36 @@ class ArchiverThreadPool(ThreadPool):
                 % chat_session_id)
 
         return stitched_archive_stream
+
+    def _generate_waveform(self,
+            chat_session_id,
+            archive_stream,
+            output_filename):
+        """Persist archive media streams.
+        
+        Args:
+            chat_session_id: chat session id
+            archive_stream: stitched ArchiveStream object
+            output_filename: base output filename to be used
+                to generate waveform.
+        Returns:
+            Updated archive stream object
+        Raises:
+            ArchiveWaveformGeneratorException
+        """
+
+        self.log.info("Generatoring waveforms for chat_session_id=%s" \
+                % chat_session_id)
+
+        with self.waveform_generator_pool.get() as waveform_generator:
+            waveform_generator.generate(
+                    archive_stream=archive_stream,
+                    output_filename=output_filename)
+
+        self.log.info("Done generating waveform for chat_session_id=%s" \
+                % chat_session_id)
+
+        return archive_stream
     
     def _persist_archives(self,
             chat_session_id,
@@ -185,7 +218,7 @@ class ArchiverThreadPool(ThreadPool):
 
         self.log.info("Done persisting archives for chat_session_id=%s" \
                 % chat_session_id)
-   
+
     def _delete_fetcher_streams(self, chat_session_id):
         """Delete media streams from fetcher.
         
@@ -242,6 +275,12 @@ class ArchiverThreadPool(ThreadPool):
                         archive_manifest=archive_manifest,
                         output_filename=output_filename)
                 
+                #generate waveform
+                stitched_archive_stream = self._generate_waveform(
+                        chat_session_id=chat_session_id,
+                        archive_stream=stitched_archive_stream,
+                        output_filename=output_filename)
+                
                 #persist streams
                 self._persist_archives(
                         chat_session_id=chat_session_id,
@@ -272,6 +311,7 @@ class Archiver(object):
             db_session_factory,
             fetcher_pool,
             stitcher_pool,
+            waveform_generator_pool,
             persister_pool,
             num_threads,
             poll_seconds=60,
@@ -283,6 +323,7 @@ class Archiver(object):
             db_session_factory: callable returning a new sqlalchemy db session
             fetcher_pool: Pool object returning a Fetcher object.
             stitcher_pool: Pool object returning a Stitcher object.
+            waveform_generator_pool: Pool object returning WaveformGenerator object
             persister_pool: Pool object returning a Persister object.
             num_threads: number of worker threads
             poll_seconds: number of seconds between db queries to detect
@@ -296,6 +337,7 @@ class Archiver(object):
         self.db_session_factory = db_session_factory
         self.fetcher_pool = fetcher_pool
         self.stitcher_pool = stitcher_pool
+        self.waveform_generator_pool = waveform_generator_pool
         self.persister_pool = persister_pool
         self.num_threads = num_threads
         self.poll_seconds = poll_seconds
@@ -308,6 +350,7 @@ class Archiver(object):
                 db_session_factory=db_session_factory,
                 fetcher_pool=fetcher_pool,
                 stitcher_pool=stitcher_pool,
+                waveform_generator_pool=waveform_generator_pool,
                 persister_pool=persister_pool,
                 job_retry_seconds=job_retry_seconds,
                 timestamp_filenames=timestamp_filenames)
