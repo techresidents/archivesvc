@@ -32,7 +32,7 @@ class ArchiveStitcher(object):
             output_filename: output base filename to be used
                 to construct the stiched stream's filename.
         Returns:
-            stitched ArchiveStream object.
+            list of stitched ArchiveStream objects.
         Raises:
             ArchiveStitcherException
         """
@@ -502,7 +502,7 @@ class FFMpegSoxStitcher(ArchiveStitcher):
             output_filename: output base filename to be used
                 to construct the stiched stream's filename.
         Returns:
-            stitched ArchiveStream object.
+            list of stitched ArchiveStream objects.
         Raises:
             ArchiveStitcherException
         """
@@ -554,10 +554,10 @@ class FFMpegSoxStitcher(ArchiveStitcher):
             #if the storage_pool is not accessible on local filesystem
             #upload the stitched stream.
             if storage_pool is not self.storage_pool:
-                self._upload_archive_streams([mp4_stream])
+                self._upload_archive_streams([stitched_stream, mp4_stream])
         
         except Exception as error:
             self.log.exception(error)
             raise ArchiveStitcherException(str(error))
 
-        return mp4_stream
+        return [mp4_stream, stitched_stream]

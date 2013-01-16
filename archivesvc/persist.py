@@ -98,7 +98,8 @@ class DefaultPersister(ArchivePersister):
                         self.log.info("Done uploading archive stream '%s'" \
                                 % stream)
 
-                        if stream.waveform_filename:
+                        if stream.waveform_filename \
+                           and not public_storage.exists(stream.waveform_filename):
                             self.log.info("Uploading waveform for archive stream '%s'" \
                                     % stream)
                             with local_storage.open(stream.waveform_filename, "r") as file:

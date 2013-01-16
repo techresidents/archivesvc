@@ -33,7 +33,7 @@ class ArchivePersisterTest(unittest.TestCase):
         pass
                  
     def test_generate(self):
-        stream = self.waveform_generator.generate(self.archive_stream, "stitch")
+        stream = self.waveform_generator.generate(self.archive_stream, "output/stitch")
         self.assertIsNotNone(stream.waveform)
         self.assertIsNotNone(stream.waveform_filename)
 
