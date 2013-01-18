@@ -142,7 +142,7 @@ class ArchiverThreadPool(ThreadPool):
             output_filename: base output filename to be used
                 to construct fetched archive filenames.
         Returns:
-            stitched ArchiveStream object.
+            list of stitched ArchiveStream objects.
         Raises:
             ArchiveStitcherException
         """
@@ -151,55 +151,61 @@ class ArchiverThreadPool(ThreadPool):
                 % chat_session_id)
 
         with self.stitcher_pool.get() as stitcher:
-            stitched_archive_stream = stitcher.stitch(
+            stitched_archive_streams = stitcher.stitch(
                     archive_streams=archive_manifest.archive_streams,
                     output_filename=output_filename)
 
         self.log.info("Done stitching archives for chat_session_id=%s" \
                 % chat_session_id)
 
-        return stitched_archive_stream
+        return stitched_archive_streams
 
     def _generate_waveform(self,
             chat_session_id,
-            archive_stream,
+            archive_streams,
             output_filename):
         """Persist archive media streams.
         
         Args:
             chat_session_id: chat session id
-            archive_stream: stitched ArchiveStream object
+            archive_streams: list of stitched ArchiveStream objects
             output_filename: base output filename to be used
                 to generate waveform.
         Returns:
-            Updated archive stream object
+            Updated list of archive stream objects
         Raises:
             ArchiveWaveformGeneratorException
         """
 
         self.log.info("Generatoring waveforms for chat_session_id=%s" \
                 % chat_session_id)
-
+        
+        #only generate waveform for first archive and copy to rest
         with self.waveform_generator_pool.get() as waveform_generator:
             waveform_generator.generate(
-                    archive_stream=archive_stream,
+                    archive_stream=archive_streams[0],
                     output_filename=output_filename)
+        
+        #copy waveform to rest of archive streams
+        for stream in archive_streams[1:]:
+            stream.waveform = archive_streams[0].waveform
+            stream.waveform_filename = archive_streams[0].waveform_filename
 
         self.log.info("Done generating waveform for chat_session_id=%s" \
                 % chat_session_id)
 
-        return archive_stream
+        return archive_streams
     
     def _persist_archives(self,
             chat_session_id,
             archive_manifest,
-            stitched_archive_stream):
+            stitched_archive_streams):
         """Persist archive media streams.
         
         Args:
             chat_session_id: chat session id
             archive_manifest: ArchiveStreamManifest object
-            stitched_archive_stream: stitched ArchiveStream object
+            stitched_archive_streams: list of stitched ArchiveStream objects
         Raises:
             ArchivePersisterException
         """
@@ -208,7 +214,7 @@ class ArchiverThreadPool(ThreadPool):
                 % chat_session_id)
 
         with self.persister_pool.get() as persister:
-            persisted_streams = [stitched_archive_stream]
+            persisted_streams = stitched_archive_streams
             for stream in archive_manifest.archive_streams:
                 if stream.type == ArchiveStreamType.USER_VIDEO_STREAM:
                     persisted_streams.append(stream)
@@ -249,6 +255,7 @@ class ArchiverThreadPool(ThreadPool):
         a new work item (chat_id) is put on the queue.
         """
         try:
+            job = None
             with database_job as job:
                 chat_session_id = job.chat_session_id
                 encoded_chat_session_id = basic_encode(chat_session_id)
@@ -270,22 +277,22 @@ class ArchiverThreadPool(ThreadPool):
                     return
     
                 #stitch streams
-                stitched_archive_stream = self._stitch_archives(
+                stitched_archive_streams = self._stitch_archives(
                         chat_session_id=chat_session_id,
                         archive_manifest=archive_manifest,
                         output_filename=output_filename)
                 
                 #generate waveform
-                stitched_archive_stream = self._generate_waveform(
+                stitched_archive_streams = self._generate_waveform(
                         chat_session_id=chat_session_id,
-                        archive_stream=stitched_archive_stream,
+                        archive_streams=stitched_archive_streams,
                         output_filename=output_filename)
                 
                 #persist streams
                 self._persist_archives(
                         chat_session_id=chat_session_id,
                         archive_manifest=archive_manifest,
-                        stitched_archive_stream=stitched_archive_stream)
+                        stitched_archive_streams=stitched_archive_streams)
                 
                 #delete fetcher streams
                 self._delete_fetcher_streams(chat_session_id)
@@ -297,10 +304,15 @@ class ArchiverThreadPool(ThreadPool):
             self.log.info("Job for chat_session_id=%s already owned." \
                     % (job.chat_session_id))
         except Exception as error:
-            self.log.error("Job for chat_session_id=%s failed." \
-                    % (job.chat_session_id))
-            self.log.exception(error)
-            self._retry_job(job)
+            if job:
+                self.log.error("Job for chat_session_id=%s failed." \
+                        % (job.chat_session_id))
+                self.log.exception(error)
+                self._retry_job(job)
+            else:
+                self.log.error("Job failed but is empty ...")
+                self.log.exception(error)
+
 
 
 class Archiver(object):

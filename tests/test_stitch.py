@@ -54,10 +54,13 @@ class TokboxArchiveFetcherTest(unittest.TestCase):
         pass
     
     def test_stitch(self):
-        archive_stream = self.stitcher.stitch(self.archive_streams, "output/stitch")
-        self.assertIsNotNone(archive_stream.filename)
-        self.assertIsNotNone(archive_stream.length)
-        self.assertIsNotNone(archive_stream.offset)
+        archive_streams = self.stitcher.stitch(self.archive_streams, "output/stitch")
+        self.assertIsNotNone(archive_streams[0].filename)
+        self.assertIsNotNone(archive_streams[0].length)
+        self.assertIsNotNone(archive_streams[0].offset)
+        self.assertIsNotNone(archive_streams[1].filename)
+        self.assertIsNotNone(archive_streams[1].length)
+        self.assertIsNotNone(archive_streams[1].offset)
 
 if __name__ == '__main__':
     unittest.main()
