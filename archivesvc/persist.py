@@ -3,7 +3,7 @@ import logging
 import os
 
 from trsvcscore.db.models import MimeType
-from trsvcscore.db.models import ChatArchive, ChatArchiveType, ChatArchiveUser
+from trsvcscore.db.models import ChatArchive, ChatArchiveType
 
 from stream import ArchiveStreamType
 
@@ -20,11 +20,11 @@ class ArchivePersister(object):
     __metaclass__ = abc.ABCMeta
     
     @abc.abstractmethod
-    def persist(self, chat_session_id,  archive_streams):
-        """Persist archive stream for specified chat session id.
+    def persist(self, chat_id,  archive_streams):
+        """Persist archive stream for specified chat id.
 
         Args:
-            chat_session_id: chat session id
+            chat_id: chat id
             archive_streams: list of ArchiveStream objects to
                 persist.
         Raises:
@@ -178,11 +178,11 @@ class DefaultPersister(ArchivePersister):
                 db_session.commit()
                 db_session.close()
 
-    def persist(self, chat_session_id, archive_streams):
-        """Persist archive stream for specified chat session id.
+    def persist(self, chat_id, archive_streams):
+        """Persist archive stream for specified chat id.
 
         Args:
-            chat_session_id: chat session id
+            chat_id: chat id
             archive_streams: list of ArchiveStream objects to
                 persist.
         Raises:
@@ -213,7 +213,7 @@ class DefaultPersister(ArchivePersister):
                     is_public =False
 
                 archive = ChatArchive(
-                        chat_session_id=chat_session_id,
+                        chat_id=chat_id,
                         type_id=chat_archive_type_id,
                         path=stream.filename,
                         mime_type_id=mime_type_id,
@@ -225,12 +225,6 @@ class DefaultPersister(ArchivePersister):
 
                 db_session.add(archive)
                 
-                for user_id in stream.users:
-                    archive_user = ChatArchiveUser(
-                            user_id=user_id,
-                            chat_archive=archive)
-                    db_session.add(archive_user)
-            
             db_session.commit()
 
         except Exception as error:

@@ -1,8 +1,6 @@
-
 class ArchiveStreamManifest(object):
     """Archive steam manifest."""
-    def __init__(self, filename, archive_streams):
-        self.filename = filename
+    def __init__(self, archive_streams):
         self.archive_streams = archive_streams
     
     def __repr__(self):
@@ -13,6 +11,8 @@ class ArchiveStreamType(object):
     """Archive steam type."""
     USER_VIDEO_STREAM = "USER_VIDEO_STREAM"
     USER_AUDIO_STREAM = "USER_AUDIO_STREAM"
+    USERS_AUDIO_STREAM = "USERS_AUDIO_STREAM"
+    USERS_VIDEO_STREAM = "USERS_VIDEO_STREAM"
     STITCHED_AUDIO_STREAM = "STITCHED_AUDIO_STREAM"
 
 class ArchiveStream(object):
