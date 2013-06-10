@@ -32,11 +32,6 @@ RIAK_PORT = 8087
 RIAK_SESSION_BUCKET = "tr_sessions"
 RIAK_SESSION_POOL_SIZE = 4
 
-#Tokbox settings
-TOKBOX_API_KEY = "15889991"
-TOKBOX_API_SECRET = "19a6fb225790a2cf3e048c58ef2fdcc425e7b599"
-TOKBOX_URL = "https://api.opentok.com"
-
 #Archiver settings
 ARCHIVER_THREADS = 1
 ARCHIVER_POLL_SECONDS = 60
