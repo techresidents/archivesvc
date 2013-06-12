@@ -487,8 +487,49 @@ class FFMpegSoxStitcher(ArchiveStitcher):
                     with local_storage.open(stream.filename, "r") as stream_file:
                         remote_storage.save(stream.filename, stream_file)
 
+    def _preprocess_archive_streams(self, archive_streams, storage_backend):
+        """Pre-process archive streams. 
+        
+        Pre-process archive streams and ensure all streams have neccessary
+        attributes for process and return the minimum set of streams needed
+        for stitching.  This means that if we already have a combined
+        (multi-user) stream, remove all other streams from the data set. 
+
+        Args:
+            archive_streams: list of ArchiveStream objects to
+                stitch into single audio stream.
+            storage_backend: Storage object, accessible on local filesystem,
+                where archive_stream can be found.
+        Returns:
+            list of stitched ArchiveStream objects.
+        """
+        combined_types = [
+            ArchiveStreamType.USERS_AUDIO_STREAM,
+            ArchiveStreamType.USERS_VIDEO_STREAM
+        ]
+        
+        #ensure all streams have length
+        for stream in archive_streams:
+            if stream.length is None:
+                 stream.length = self._get_audio_stream_length(
+                         storage_backend, stream)
+        
+        
+        #check if we can reduce streams to include a single
+        #combined (multi-user) stream
+        combined_stream = None
+        for stream in archive_streams:
+            if stream.type in combined_types:
+                if combined_stream is None or \
+                   stream.length > combined_stream.length:
+                    combined_stream = stream
+        if combined_stream:
+            archive_streams = [combined_stream]
+
+        return archive_streams
+
     def stitch(self, archive_streams, output_filename):
-        """Stitch video streams into single audio stream.
+        """Stitch audio streams into single audio stream.
 
         Note that stitching requires archive streams to be
         available on the local filesystem for stitching.
@@ -507,10 +548,8 @@ class FFMpegSoxStitcher(ArchiveStitcher):
             ArchiveStitcherException
         """
         try:
-            video_streams = archive_streams
-            
             #check to see if the archive_streams stored on self.storage_pool
-            #are accessible on the local filesystem. Stitching requres the
+            #are accessible on the local filesystem. Stitching requires the
             #archive streams to be accessible on the local filesystem, so if
             #they're not, we need to download the streams before they can
             #be stitched.
@@ -522,11 +561,17 @@ class FFMpegSoxStitcher(ArchiveStitcher):
                     except NotImplemented:
                         self._download_archive_streams(archive_streams)
                         storage_pool = self.filsystem_storage_pool
-            
+                    
+           
             with storage_pool.get() as storage_backend:
+                #preprocess streams
+                archive_streams = self._preprocess_archive_streams(
+                        archive_streams=archive_streams,
+                        storage_backend=storage_backend)
+
                 #extact audio from video streams
                 audio_streams = []
-                for index, stream in enumerate(video_streams):
+                for index, stream in enumerate(archive_streams):
                     audio_stream = self._extract_audio_stream(
                             storage_backend=storage_backend,
                             archive_stream=stream,

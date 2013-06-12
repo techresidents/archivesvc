@@ -11,7 +11,7 @@ from trarchivesvc.gen import TArchiveService
 
 import settings
 from archive import Archiver
-from fetch import TokboxFetcher
+from fetch import TwilioFetcher
 from persist import DefaultPersister
 from stitch import FFMpegSoxStitcher
 from waveform import FFMpegWaveformGenerator
@@ -64,12 +64,12 @@ class ArchiveServiceHandler(TArchiveService.Iface, ServiceHandler):
                 factory=Factory(filesystem_storage_factory))
 
         def fetcher_factory():
-            return TokboxFetcher(
+            return TwilioFetcher(
                     db_session_factory=self.get_database_session,
                     storage_pool=self.filesystem_storage_pool,
-                    tokbox_api_key=settings.TOKBOX_API_KEY,
-                    tokbox_api_secret=settings.TOKBOX_API_SECRET,
-                    tokbox_url=settings.TOKBOX_URL)
+                    twilio_account_sid=settings.TWILIO_ACCOUNT_SID,
+                    twilio_auth_token=settings.TWILIO_AUTH_TOKEN,
+                    twilio_application_sid=settings.TWILIO_APPLICATION_SID)
         self.fetcher_pool = QueuePool(
                 size=settings.ARCHIVER_THREADS,
                 factory=Factory(fetcher_factory))

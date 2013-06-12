@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 import threading
 import time
@@ -75,21 +76,22 @@ class ArchiverThreadPool(ThreadPool):
                 not_before =tz.utcnow() + \
                         datetime.timedelta(seconds=self.job_retry_seconds)
                 
-                self.log.info("Creating retry job for chat_session_id=%s at %s" \
-                        % (job.chat_session_id, not_before))
+                self.log.info("Creating retry job for chat_id=%s at %s" \
+                        % (job.chat_id, not_before))
 
                 retry = ChatArchiveJob(
-                        chat_session_id=job.chat_session_id,
+                        chat_id=job.chat_id,
                         created=func.current_timestamp(),
                         not_before=not_before,
+                        data=job.data,
                         retries_remaining=job.retries_remaining-1)
                 db_session.add(retry)
                 db_session.commit()
             else:
-                self.log.info("No retries remaining for job for chat_session_id=%s" \
-                        % (job.chat_session_id))
-                self.log.error("Job for chat_session_id=%s failed!" \
-                        % (job.chat_session_id))
+                self.log.info("No retries remaining for job for chat_id=%s" \
+                        % (job.chat_id))
+                self.log.error("Job for chat_id=%s failed!" \
+                        % (job.chat_id))
         except Exception as error:
             self.log.exception(error)
             db_session.rollback()
@@ -97,38 +99,40 @@ class ArchiverThreadPool(ThreadPool):
             if db_session:
                 db_session.close()
     
-    def _fetch_archives(self, chat_session_id, output_filename):
+    def _fetch_archives(self, chat_id, chat_session, output_filename):
         """Fetch and download single-user media streams.
         
         Args:
-            chat_session_id: chat session id
+            chat_id: chat id
+            chat_session: session data from chat
             output_filename: base output filename to be used
                 to construct fetched archive filenames.
         Returns:
             ArchiveStreamManifest object or None if no archives
-            exists for the given chat_session_id.
+            exists for the given chat_id.
         Raises:
             ArchiveFetcherException
         """
         result = None
 
-        self.log.info("Fetching archives for chat_session_id=%s" \
-                % chat_session_id)
+        self.log.info("Fetching archives for chat_id=%s" \
+                % chat_id)
 
         with self.fetcher_pool.get() as fetcher:
             archive_manifest = fetcher.fetch(
-                    chat_session_id=chat_session_id,
+                    chat_id=chat_id,
+                    chat_session=chat_session,
                     output_filename=output_filename)
             if archive_manifest is not None:
                 result = archive_manifest
 
-        self.log.info("Done fetching archives for chat_session_id=%s" \
-                % chat_session_id)
+        self.log.info("Done fetching archives for chat_id=%s" \
+                % chat_id)
 
         return result
 
     def _stitch_archives(self,
-            chat_session_id,
+            chat_id,
             archive_manifest,
             output_filename):
         """Anonymize and stitch archives streams into single stream.
@@ -137,7 +141,7 @@ class ArchiverThreadPool(ThreadPool):
         for all streams specified in the archive_manifeset.
 
         Args:
-            chat_session_id: chat session id
+            chat_id: chat id
             archive_manifest: ArchiveStreamManifset object
             output_filename: base output filename to be used
                 to construct fetched archive filenames.
@@ -147,27 +151,27 @@ class ArchiverThreadPool(ThreadPool):
             ArchiveStitcherException
         """
 
-        self.log.info("Stitching archives for chat_session_id=%s" \
-                % chat_session_id)
+        self.log.info("Stitching archives for chat_id=%s" \
+                % chat_id)
 
         with self.stitcher_pool.get() as stitcher:
             stitched_archive_streams = stitcher.stitch(
                     archive_streams=archive_manifest.archive_streams,
                     output_filename=output_filename)
 
-        self.log.info("Done stitching archives for chat_session_id=%s" \
-                % chat_session_id)
+        self.log.info("Done stitching archives for chat_id=%s" \
+                % chat_id)
 
         return stitched_archive_streams
 
     def _generate_waveform(self,
-            chat_session_id,
+            chat_id,
             archive_streams,
             output_filename):
         """Persist archive media streams.
         
         Args:
-            chat_session_id: chat session id
+            chat_id: chat id
             archive_streams: list of stitched ArchiveStream objects
             output_filename: base output filename to be used
                 to generate waveform.
@@ -177,8 +181,8 @@ class ArchiverThreadPool(ThreadPool):
             ArchiveWaveformGeneratorException
         """
 
-        self.log.info("Generatoring waveforms for chat_session_id=%s" \
-                % chat_session_id)
+        self.log.info("Generatoring waveforms for chat_id=%s" \
+                % chat_id)
         
         #only generate waveform for first archive and copy to rest
         with self.waveform_generator_pool.get() as waveform_generator:
@@ -191,58 +195,58 @@ class ArchiverThreadPool(ThreadPool):
             stream.waveform = archive_streams[0].waveform
             stream.waveform_filename = archive_streams[0].waveform_filename
 
-        self.log.info("Done generating waveform for chat_session_id=%s" \
-                % chat_session_id)
+        self.log.info("Done generating waveform for chat_id=%s" \
+                % chat_id)
 
         return archive_streams
     
     def _persist_archives(self,
-            chat_session_id,
+            chat_id,
             archive_manifest,
             stitched_archive_streams):
         """Persist archive media streams.
         
         Args:
-            chat_session_id: chat session id
+            chat_id: chat id
             archive_manifest: ArchiveStreamManifest object
             stitched_archive_streams: list of stitched ArchiveStream objects
         Raises:
             ArchivePersisterException
         """
 
-        self.log.info("Persisting archives for chat_session_id=%s" \
-                % chat_session_id)
+        self.log.info("Persisting archives for chat_id=%s" \
+                % chat_id)
 
         with self.persister_pool.get() as persister:
             persisted_streams = stitched_archive_streams
             for stream in archive_manifest.archive_streams:
-                if stream.type == ArchiveStreamType.USER_VIDEO_STREAM:
+                if stream.type != ArchiveStreamType.STITCHED_AUDIO_STREAM:
                     persisted_streams.append(stream)
             persister.persist(
-                    chat_session_id=chat_session_id,
+                    chat_id=chat_id,
                     archive_streams=persisted_streams)
 
-        self.log.info("Done persisting archives for chat_session_id=%s" \
-                % chat_session_id)
+        self.log.info("Done persisting archives for chat_id=%s" \
+                % chat_id)
 
-    def _delete_fetcher_streams(self, chat_session_id):
+    def _delete_fetcher_streams(self, chat_id, chat_session):
         """Delete media streams from fetcher.
         
         Deletes media streams stored at fetcher location.
 
         Args:
-            chat_session_id: chat_session_id
+            chat_id: chat_id
         Raises:
             ArchiveFetcherException
         """
-        self.log.info("Deleting archives for chat_session_id=%s" \
-                % chat_session_id)
+        self.log.info("Deleting archives for chat_id=%s" \
+                % chat_id)
 
         with self.fetcher_pool.get() as fetcher:
-            fetcher.delete(chat_session_id)
+            fetcher.delete(chat_id, chat_session)
 
-        self.log.info("Done deleting archives for chat_session_id=%s" \
-                % chat_session_id)
+        self.log.info("Done deleting archives for chat_id=%s" \
+                % chat_id)
 
     def process(self, database_job):
         """Worker thread process method.
@@ -257,56 +261,58 @@ class ArchiverThreadPool(ThreadPool):
         try:
             job = None
             with database_job as job:
-                chat_session_id = job.chat_session_id
-                encoded_chat_session_id = basic_encode(chat_session_id)
-                output_filename = "archive/%s" % encoded_chat_session_id
+                chat_id = job.chat_id
+                encoded_chat_id = basic_encode(chat_id)
+                chat_session = json.loads(job.data)
+                output_filename = "archive/%s" % encoded_chat_id
                 if self.timestamp_filenames:
                     output_filename += "-%s" % time.time()
 
-                self.log.info("Creating archive for chat_session_id=%s (%s)" \
-                        % (chat_session_id, encoded_chat_session_id))
+                self.log.info("Creating archive for chat_id=%s (%s)" \
+                        % (chat_id, encoded_chat_id))
                 
                 #fetch archive streams
                 archive_manifest = self._fetch_archives(
-                        chat_session_id=chat_session_id,
+                        chat_id=chat_id,
+                        chat_session=chat_session,
                         output_filename=output_filename)
                 if archive_manifest is None \
                         or not archive_manifest.archive_streams:
-                    self.log.info("No archives for chat_session_id=%s" \
-                            % chat_session_id)
+                    self.log.info("No archives for chat_id=%s" \
+                            % chat_id)
                     return
     
                 #stitch streams
                 stitched_archive_streams = self._stitch_archives(
-                        chat_session_id=chat_session_id,
+                        chat_id=chat_id,
                         archive_manifest=archive_manifest,
                         output_filename=output_filename)
                 
                 #generate waveform
                 stitched_archive_streams = self._generate_waveform(
-                        chat_session_id=chat_session_id,
+                        chat_id=chat_id,
                         archive_streams=stitched_archive_streams,
                         output_filename=output_filename)
                 
                 #persist streams
                 self._persist_archives(
-                        chat_session_id=chat_session_id,
+                        chat_id=chat_id,
                         archive_manifest=archive_manifest,
                         stitched_archive_streams=stitched_archive_streams)
                 
                 #delete fetcher streams
-                self._delete_fetcher_streams(chat_session_id)
+                self._delete_fetcher_streams(chat_id, chat_session)
 
-                self.log.info("Done with archive for chat_session_id=%s (%s)" \
-                        % (chat_session_id, encoded_chat_session_id))
+                self.log.info("Done with archive for chat_id=%s (%s)" \
+                        % (chat_id, encoded_chat_id))
 
         except JobOwned:
-            self.log.info("Job for chat_session_id=%s already owned." \
-                    % (job.chat_session_id))
+            self.log.info("Job for chat_id=%s already owned." \
+                    % (job.chat_id))
         except Exception as error:
             if job:
-                self.log.error("Job for chat_session_id=%s failed." \
-                        % (job.chat_session_id))
+                self.log.error("Job for chat_id=%s failed." \
+                        % (job.chat_id))
                 self.log.exception(error)
                 self._retry_job(job)
             else:
