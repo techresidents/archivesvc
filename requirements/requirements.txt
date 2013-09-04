@@ -3,7 +3,6 @@ psycopg2==2.4.5
 SQLAlchemy==0.7.6
 thrift==0.8.0
 opentok-python-sdk==0.91.1
-python-cloudfiles==1.7.10
 protobuf==2.4.1
 riak==1.4.0
 scikits.audiolab==0.11.0
@@ -11,8 +10,10 @@ pil==1.1.7
 twilio==3.4.5
 
 git+ssh://dev.techresidents.com/tr/repos/techresidents/lib/python/zookeeper.git@3.3.5#egg=zookeeper
-git+ssh://dev.techresidents.com/tr/repos/techresidents/lib/python/trpycore.git@0.10.0#egg=trpycore
-git+ssh://dev.techresidents.com/tr/repos/techresidents/services/core/python/trsvcscore.git@0.23.0#egg=trsvcscore
+git+ssh://dev.techresidents.com/tr/repos/techresidents/lib/python/trpycore.git@integration#egg=trpycore
+git+ssh://dev.techresidents.com/tr/repos/techresidents/services/core/python/trsvcscore.git@integration#egg=trsvcscore
+git+ssh://dev.techresidents.com/tr/repos/techresidents/lib/python/trhttp.git@integration#egg=trhttp
+git+ssh://dev.techresidents.com/tr/repos/techresidents/lib/python/trrackspace.git@integration#egg=trrackspace
 
 http://nexus.dev.techresidents.com/content/groups/public/com/techresidents/services/core/idl/idl-core-python/0.7.0/idl-core-python-0.7.0-bin.tar.gz#egg=tridlcore
 http://nexus.dev.techresidents.com/content/groups/public/com/techresidents/services/archivesvc/archivesvc-idl-python/0.12-SNAPSHOT/archivesvc-idl-python-0.12-SNAPSHOT-bin.tar.gz#egg=archivesvc

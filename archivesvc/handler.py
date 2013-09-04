@@ -1,12 +1,12 @@
 import logging
 
-from trpycore.cloudfiles_common.factory import CloudfilesConnectionFactory
 from trpycore.factory.base import Factory
 from trpycore.pool.queue import QueuePool
 from trpycore.thread.util import join
 from trsvcscore.service.handler.service import ServiceHandler
 from trsvcscore.storage.cloudfiles import CloudfilesStoragePool
 from trsvcscore.storage.filesystem import FileSystemStorage
+from trrackspace.services.cloudfiles.factory import CloudfilesClientFactory
 from trarchivesvc.gen import TArchiveService
 
 import settings
@@ -34,25 +34,27 @@ class ArchiveServiceHandler(TArchiveService.Iface, ServiceHandler):
         self.log = logging.getLogger("%s.%s" \
                 % (__name__, self.__class__.__name__))
        
-        #Rackspace cloudfiles connection factory
-        self.cloudfiles_connection_factory = CloudfilesConnectionFactory(
+        #Rackspace cloudfiles client factory
+        self.cloudfiles_client_factory = CloudfilesClientFactory(
                 username=settings.CLOUDFILES_USERNAME,
                 api_key=settings.CLOUDFILES_API_KEY,
                 password=settings.CLOUDFILES_PASSWORD,
                 servicenet=settings.CLOUDFILES_SERVICENET,
-                timeout=settings.CLOUDFILES_TIMEOUT)
+                retries=settings.CLOUDFILES_RETRIES,
+                timeout=settings.CLOUDFILES_TIMEOUT,
+                debug_level=settings.CLOUDFILES_DEBUG_LEVEL)
 
         #public cloudfiles storage pool for storing archives
         #on public cdn.
         self.cloudfiles_public_storage_pool = CloudfilesStoragePool(
-                cloudfiles_connection_factory=self.cloudfiles_connection_factory,
+                cloudfiles_client_factory=self.cloudfiles_client_factory,
                 container_name=settings.CLOUDFILES_PUBLIC_CONTAINER_NAME,
                 size=settings.CLOUDFILES_STORAGE_POOL_SIZE)
         
         #private cloudfiles storage pool for storing archives
         #which should not be accessible on cdb.
         self.cloudfiles_private_storage_pool = CloudfilesStoragePool(
-                cloudfiles_connection_factory=self.cloudfiles_connection_factory,
+                cloudfiles_client_factory=self.cloudfiles_client_factory,
                 container_name=settings.CLOUDFILES_PRIVATE_CONTAINER_NAME,
                 size=settings.CLOUDFILES_STORAGE_POOL_SIZE)
         
