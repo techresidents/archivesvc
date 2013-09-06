@@ -11,9 +11,9 @@ twilio==3.4.5
 
 git+ssh://dev.techresidents.com/tr/repos/techresidents/lib/python/zookeeper.git@3.3.5#egg=zookeeper
 git+ssh://dev.techresidents.com/tr/repos/techresidents/lib/python/trpycore.git@0.11.0#egg=trpycore
-git+ssh://dev.techresidents.com/tr/repos/techresidents/lib/python/trhttp.git@0.4.0#egg=trhttp
-git+ssh://dev.techresidents.com/tr/repos/techresidents/lib/python/trrackspace.git@0.2.0#egg=trrackspace
-git+ssh://dev.techresidents.com/tr/repos/techresidents/services/core/python/trsvcscore.git@0.30.0#egg=trsvcscore
+git+ssh://dev.techresidents.com/tr/repos/techresidents/lib/python/trhttp.git@0.5.0#egg=trhttp
+git+ssh://dev.techresidents.com/tr/repos/techresidents/lib/python/trrackspace.git@0.3.0#egg=trrackspace
+git+ssh://dev.techresidents.com/tr/repos/techresidents/services/core/python/trsvcscore.git@0.31.0#egg=trsvcscore
 
 http://nexus.dev.techresidents.com/content/groups/public/com/techresidents/services/core/idl/idl-core-python/0.7.0/idl-core-python-0.7.0-bin.tar.gz#egg=tridlcore
 http://nexus.dev.techresidents.com/content/groups/public/com/techresidents/services/archivesvc/archivesvc-idl-python/0.13-SNAPSHOT/archivesvc-idl-python-0.13-SNAPSHOT-bin.tar.gz#egg=archivesvc
