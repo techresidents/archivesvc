@@ -13,4 +13,4 @@ git+ssh://dev.techresidents.com/tr/repos/techresidents/lib/python/trpycore.git@0
 git+ssh://dev.techresidents.com/tr/repos/techresidents/services/core/python/trsvcscore.git@0.35.0#egg=trsvcscore
 
 http://nexus.dev.techresidents.com/content/groups/public/com/techresidents/services/core/idl/idl-core-python/0.7.0/idl-core-python-0.7.0-bin.tar.gz#egg=tridlcore
-http://nexus.dev.techresidents.com/content/groups/public/com/techresidents/services/archivesvc/archivesvc-idl-python/0.14-SNAPSHOT/archivesvc-idl-python-0.14-SNAPSHOT-bin.tar.gz#egg=archivesvc
+http://nexus.dev.techresidents.com/content/groups/public/com/techresidents/services/archivesvc/archivesvc-idl-python/0.14.0/archivesvc-idl-python-0.14.0-bin.tar.gz#egg=archivesvc
