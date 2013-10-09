@@ -8,7 +8,7 @@
     <parent>
         <groupId>com.techresidents.services.archivesvc</groupId>
         <artifactId>archivesvc-idl</artifactId>
-        <version>0.13.0</version>
+        <version>0.14.0</version>
     </parent>
 
     <artifactId>archivesvc-idl-idl</artifactId>
